@@ -1,0 +1,35 @@
+# Sofia's turn-taking design as promoted on 2026-11-11 (design v3, her only design), NOT RUN YET.
+# Same held-out samples as baseline-holdout-telephony and system-one-v2-holdout-telephony, so the
+# three runs are paired. Run it with: make eval-turn-taking CONFIG=<this file>
+run_name: production-holdout-telephony
+data_root: evals/turn_taking/data/fdb
+env_file: .env
+selection:
+  seed: 0
+  # Paired with the held-out baseline (its recorded manifest, written by baseline_holdout.yaml).
+  from_manifest: evals/results/turn_taking/baseline-holdout-telephony/manifest.json
+  tasks:
+    v1/candor_pause_handling: {n: 10}
+    v1/candor_turn_taking: {n: 10}
+    v1.5/user_backchannel: {n: 10}
+    v1.5/user_interruption: {n: 10}
+    v1.5/background_speech: {n: 10}
+    v1.5/talking_to_other: {n: 10}
+agent:
+  variant: system_one
+  design: production        # what Sofia runs now: hr_screener.turn_taking.design.SYSTEM_ONE_DESIGN
+  audio_profile: telephony
+  settings_overrides: {}
+run:
+  concurrency: 2
+  trailing_silence_secs: 2.0
+  clean_inputs: true
+  skip_existing: true
+  max_session_starts_per_minute: 4
+  max_retries: 2
+  retry_wait_secs: 60
+  tool_latency_secs: 0.3
+eval:
+  device: auto
+  metrics: all
+  judge: {provider: anthropic, model: claude-sonnet-5-5}

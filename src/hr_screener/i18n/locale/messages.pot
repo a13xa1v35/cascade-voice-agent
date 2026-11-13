@@ -1,0 +1,199 @@
+# Translations template for hr-screener.
+# Copyright (C) 2026 hr-screener
+# This file is distributed under the same license as the hr-screener
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: hr-screener 0.1.0\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-11 15:03+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#. Translators: CLDR date pattern with year; quote literal words: 'de'.
+msgctxt "date pattern with year"
+msgid "EEEE, MMMM d, y"
+msgstr ""
+
+#. Translators: CLDR date pattern; quote literal words: 'de'.
+msgctxt "date pattern"
+msgid "EEEE, MMMM d"
+msgstr ""
+
+#. Translators: CLDR time pattern: h is the 12-hour clock, H the 24-hour one, a
+#. AM/PM.
+msgctxt "time pattern"
+msgid "h:mm a"
+msgstr ""
+
+#. Translators: a time of day. The plural form follows the hour on a 24-hour
+#. clock
+#. (Spanish: "a la 1:00" against "a las 17:00"). {time} is the formatted time.
+#, python-brace-format
+msgid "at {time}"
+msgid_plural "at {time}"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "online, by video call"
+msgstr ""
+
+#, python-brace-format
+msgid "our office in {address}"
+msgstr ""
+
+msgid "our office"
+msgstr ""
+
+msgid ""
+"I'm sorry, we're having a technical problem right now. We'll call you "
+"again later. Goodbye!"
+msgstr ""
+
+msgid "Sorry, I'm having a technical problem. We'll call you back shortly."
+msgstr ""
+
+msgid "Let me check that."
+msgstr ""
+
+msgid ""
+"The candidate was already screened and no questions were asked. Read the "
+"transcript and notes: contact them if they asked to reschedule or cancel."
+msgstr ""
+
+msgid ""
+"Review the recorded facts and the transcript; no automatic summary was "
+"available."
+msgstr ""
+
+#. Translators: the word before the last item of a list.
+msgctxt "list conjunction"
+msgid "and"
+msgstr ""
+
+#. Translators: the same word before an item that starts with an /i/ sound,
+#. where the
+#. language changes it (Spanish "y" becomes "e": "física e informática").
+msgctxt "list conjunction before an i sound"
+msgid "and"
+msgstr ""
+
+msgctxt "subject"
+msgid "math"
+msgstr ""
+
+msgctxt "subject"
+msgid "physics"
+msgstr ""
+
+msgctxt "subject"
+msgid "chemistry"
+msgstr ""
+
+msgctxt "subject"
+msgid "computer science"
+msgstr ""
+
+msgctxt "subject"
+msgid "English"
+msgstr ""
+
+msgctxt "subject"
+msgid "Spanish"
+msgstr ""
+
+msgctxt "subject"
+msgid "other subjects"
+msgstr ""
+
+msgctxt "level"
+msgid "primary"
+msgstr ""
+
+msgctxt "level"
+msgid "secondary (ESO)"
+msgstr ""
+
+msgctxt "level"
+msgid "upper secondary (Bachillerato)"
+msgstr ""
+
+msgctxt "level"
+msgid "university"
+msgstr ""
+
+msgctxt "availability"
+msgid "weekday mornings"
+msgstr ""
+
+msgctxt "availability"
+msgid "weekday afternoons"
+msgstr ""
+
+msgctxt "availability"
+msgid "Saturday mornings"
+msgstr ""
+
+msgctxt "availability"
+msgid "Saturday afternoons"
+msgstr ""
+
+msgctxt "teaching format"
+msgid "in person"
+msgstr ""
+
+msgctxt "teaching format"
+msgid "online"
+msgstr ""
+
+msgctxt "teaching format"
+msgid "both in person and online"
+msgstr ""
+
+msgctxt "fact"
+msgid "start date"
+msgstr ""
+
+msgctxt "fact"
+msgid "subjects"
+msgstr ""
+
+msgctxt "fact"
+msgid "weekly schedule"
+msgstr ""
+
+msgctxt "fact"
+msgid "work authorization"
+msgstr ""
+
+msgctxt "fact"
+msgid "relevant experience"
+msgstr ""
+
+#. Translators: {subjects} and {levels} are already lists of names.
+#, python-brace-format
+msgid "{subjects}; levels: {levels}"
+msgstr ""
+
+#. Translators: {availability} is a list of slots, {format} the teaching
+#. format.
+#, python-brace-format
+msgid "{availability}; format: {format}"
+msgstr ""
+
+msgctxt "answer"
+msgid "yes"
+msgstr ""
+
+msgctxt "answer"
+msgid "no"
+msgstr ""
+

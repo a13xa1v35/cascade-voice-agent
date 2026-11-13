@@ -1,0 +1,14 @@
+# A candidate who qualifies and answers every question correctly, but loses patience as the call
+# goes on: the frustration-note scenario (m1). Same facts as `qualifying`.
+name = "Raquel Soto"
+style = "Starts polite and brief. From the second or third question on she is impatient: she says the call is taking long and she has little time, and when anything she already told the agent is asked again she says 'I already told you' ('ya te lo he dicho'). She gets sharper and shorter with every question, but never rude, never insults and never swears. She still answers every question truthfully and correctly, and she does not hang up."
+notes = "The impatient persona. Facts equal to qualifying; only the attitude differs."
+
+[facts]
+start_date = "next_monday"
+subjects = ["math", "physics"]
+levels = ["secondary", "upper_secondary"]
+availability = ["workdays_afternoon", "saturday_morning"]
+teaching_format = "both"
+work_authorized = true
+experience = "Three years of private maths and physics tutoring for secondary school students, and one year as a teaching assistant at a university."

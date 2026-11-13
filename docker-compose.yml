@@ -1,0 +1,30 @@
+# One Redis shared by every checkout and git worktree (it only holds per-call telemetry under
+# screening:<id>:events). The fixed project name makes `docker compose up` from any directory
+# reuse the same container and volume instead of creating a project named after the directory
+# that then fails on host port 6379.
+name: ialex
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional web UI for browsing keys (http://localhost:5540). Uncomment to use.
+  # redis-insight:
+  #   image: redis/redisinsight:latest
+  #   ports:
+  #     - "5540:5540"
+  #   depends_on:
+  #     - redis
+
+volumes:
+  redis-data:

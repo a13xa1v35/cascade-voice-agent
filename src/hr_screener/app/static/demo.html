@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A voice AI agent that screens tutor candidates</title>
+<meta name="description" content="A voice AI agent that phones tutor candidates, screens them and books an onboarding session. Live phone demo.">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --ink: #1c2230; --muted: #5d6679; --line: #dde1e8;
+    --accent: #2455d6; --accent-ink: #fff; --ok: #12805c; --warn: #9a5b00; --bad: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --card: #1b2029; --ink: #e8ebf2; --muted: #9aa3b5; --line: #2c3340;
+      --accent: #6b93ff; --accent-ink: #0d1220; --ok: #4cc79a; --warn: #e5a94a; --bad: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 8px 0 4px; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; margin-top: 20px; }
+  ul { margin: 0 0 8px; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  label, legend { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 4px; }
+  .field { margin-bottom: 16px; }
+  .hint { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+  input[type=text], input[type=tel], select { width: 100%; padding: 10px 12px; font: inherit;
+    color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 16px; }
+  .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px 12px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; margin: 0; }
+  .check input { margin-top: 5px; }
+  button { font: inherit; font-weight: 600; padding: 12px 20px; border-radius: 8px; border: 0;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer; width: 100%; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  button:disabled { opacity: .55; cursor: default; }
+  .error { color: var(--bad); font-size: .92rem; margin-top: 10px; min-height: 1.2em; }
+  .disclaimer { background: var(--bg); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+  .status { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--warn); flex: none; }
+  .dot.live { background: var(--ok); animation: pulse 1.4s infinite; }
+  .dot.done { background: var(--muted); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; }
+  .hidden { display: none; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--bg);
+    border: 1px solid var(--line); font-size: .9rem; font-weight: 600; }
+  .byline { color: var(--muted); margin: 0 0 16px; }
+  .byline a { color: var(--accent); font-weight: 600; text-decoration: none; margin-left: 4px; }
+  .byline a:hover { text-decoration: underline; }
+  .hero { padding-top: 12px; }
+  input[type=password] { width: 100%; padding: 10px 12px; font: inherit;
+    color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  input[type=password]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .actions { display: grid; gap: 10px; margin-top: 16px; }
+  footer { color: var(--muted); font-size: .85rem; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <h1>A voice AI agent that screens tutor candidates</h1>
+    <p class="byline">Built by <strong class="author-name">Alex Alves</strong>
+      <a id="github" class="hidden" href="#" rel="noopener">GitHub</a>
+      <a id="linkedin" class="hidden" href="#" rel="noopener">LinkedIn</a></p>
+    <p class="lead">Apply as a tutor with your own phone number and <span class="agent-name">Sofia</span> will call you to screen the application, just as she would a real candidate.</p>
+  </header>
+
+  <section class="card" id="about">
+    <h2>What the agent does</h2>
+    <p><span class="agent-name">Sofia</span> works for <span class="agency-name">TuTeacher</span>, a <strong>fictional</strong> tutoring agency. When a candidate applies, she phones them and:</p>
+    <ul>
+      <li>confirms she is speaking to the right person;</li>
+      <li>asks the screening questions: subjects, levels, availability, start date, work authorisation;</li>
+      <li>decides eligibility with a <strong>deterministic rule</strong> in code, not by asking the language model;</li>
+      <li>books an onboarding session when the candidate qualifies;</li>
+      <li>answers questions about pay, contract and taxes from a knowledge base, and refers what she cannot answer to a recruiter;</li>
+      <li>writes a structured summary of the call for the hiring team.</li>
+    </ul>
+    <p>She speaks English and Spanish. After the call, this page shows what she recorded.</p>
+  </section>
+
+  <section class="card" id="step-form">
+    <h2>Try it: apply as a tutor</h2>
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="name">Full name</label>
+        <input id="name" type="text" autocomplete="name" maxlength="80" required>
+      </div>
+      <div class="field">
+        <label for="phone">Phone number</label>
+        <input id="phone" type="tel" autocomplete="tel" placeholder="+34 600 111 222" required>
+        <div class="hint">International format with the country code, e.g. +34600111222. This is the number <span class="agent-name">Sofia</span> will call.</div>
+      </div>
+      <div class="field">
+        <label for="language">Language of the call</label>
+        <select id="language">
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+        </select>
+      </div>
+      <fieldset>
+        <legend>Subjects you can teach</legend>
+        <div class="checks" id="subjects"></div>
+      </fieldset>
+      <button type="submit">Continue</button>
+      <div class="error" id="form-error" role="alert"></div>
+    </form>
+  </section>
+
+  <section class="card hidden" id="step-ready">
+    <h2>Ready for the call</h2>
+    <div class="disclaimer">
+      <ul>
+        <li>An <strong>AI agent</strong> will phone you, not a person.</li>
+        <li>The call is <strong>recorded, transcribed and processed by third parties</strong>: Twilio (telephony), AssemblyAI (speech), Anthropic (language model), Cloudflare (turn-taking) and OpenAI (embeddings for the knowledge base).</li>
+        <li><span class="agency-name">TuTeacher</span> is <strong>fictional</strong> and this is a demo only. Do not share real personal data beyond your name and phone number.</li>
+        <li>You may hang up at any time.</li>
+        <li>Calls are limited to <span id="limit">15</span> minutes.</li>
+      </ul>
+    </div>
+    <div class="field">
+      <label class="check"><input id="consent" type="checkbox">
+        <span>I understand and agree to be called by an AI agent, and to the call being recorded and processed as described above.</span></label>
+    </div>
+    <div class="field">
+      <label for="code">Access code</label>
+      <input id="code" type="password" autocomplete="off" spellcheck="false">
+      <div class="hint">The code you received by email.</div>
+    </div>
+    <div class="actions">
+      <button id="call" type="button">Call me</button>
+      <button class="secondary" id="back" type="button">Back</button>
+    </div>
+    <div class="error" id="call-error" role="alert"></div>
+  </section>
+
+  <section class="card hidden" id="step-status">
+    <h2>The call</h2>
+    <div class="status"><span class="dot" id="dot"></span><span id="status-text">Calling you...</span></div>
+    <p class="hint" id="status-hint">Answer your phone. <span class="agent-name">Sofia</span> will speak first.</p>
+    <div class="error" id="status-error" role="alert"></div>
+    <div class="hidden" id="result">
+      <h2 id="result-title" style="margin-top:20px">What <span class="agent-name">Sofia</span> recorded</h2>
+      <dl id="result-list"></dl>
+      <div id="summary" class="hidden">
+        <h2>Summary key points</h2>
+        <ul id="points"></ul>
+        <p id="next-step"></p>
+      </div>
+      <p class="hint" id="summary-wait"></p>
+      <button class="secondary" id="again" type="button">Start over</button>
+    </div>
+  </section>
+
+  <footer>Demo project. Nothing here is a real job offer.</footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var payload = null;      // the form, kept in memory
+  var accessCode = "";     // never stored, only sent in request bodies
+  var pollTimer = null;
+  var runId = 0;           // bumped to cancel an old poll loop
+  var agent = "Sofia";     // replaced by /demo/options
+
+  function show(step) {
+    ["step-form", "step-ready", "step-status"].forEach(function (id) {
+      $(id).classList.toggle("hidden", id !== step);
+    });
+    $("about").classList.toggle("hidden", step !== "step-form");
+    document.querySelector(".hero").classList.toggle("hidden", step !== "step-form");
+    window.scrollTo(0, 0);
+  }
+  function setNames(selector, value) {
+    document.querySelectorAll(selector).forEach(function (e) { e.textContent = value; });
+  }
+  function pretty(value) {
+    var text = String(value).replace(/_/g, " ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+  function normalizePhone(raw) {
+    var p = raw.replace(/[\s\-.()]/g, "");
+    if (p.indexOf("00") === 0) p = "+" + p.slice(2);
+    return /^\+[1-9]\d{7,14}$/.test(p) ? p : null;
+  }
+  function errorText(data, status) {
+    if (data && typeof data.detail === "string") return data.detail;
+    if (data && Array.isArray(data.detail) && data.detail.length) {
+      var d = data.detail[0];
+      return (d.loc ? d.loc[d.loc.length - 1] + ": " : "") + String(d.msg || "").replace(/^Value error, /, "");
+    }
+    return "Something went wrong (HTTP " + status + ").";
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().catch(function () { return null; }).then(function (data) {
+        if (!r.ok) {
+          var err = new Error(errorText(data, r.status));
+          err.status = r.status;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+  function setLink(id, url) {
+    var a = $(id);
+    if (url) { a.href = url; a.classList.remove("hidden"); }
+  }
+
+  fetch("/demo/options").then(function (r) { return r.json(); }).then(function (o) {
+    o.subjects.forEach(function (s) {
+      var label = document.createElement("label");
+      label.className = "check";
+      var box = document.createElement("input");
+      box.type = "checkbox"; box.value = s; box.name = "subject";
+      var span = document.createElement("span");
+      span.textContent = pretty(s);
+      label.append(box, span);
+      $("subjects").appendChild(label);
+    });
+    var select = $("language");
+    select.textContent = "";
+    o.languages.forEach(function (l) {
+      var opt = document.createElement("option");
+      opt.value = l.code; opt.textContent = l.label;
+      select.appendChild(opt);
+    });
+    $("limit").textContent = o.call_time_limit_minutes;
+    agent = o.agent_name;
+    setNames(".agent-name", o.agent_name);
+    setNames(".agency-name", o.agency_name);
+    setNames(".author-name", o.author_name);
+    setLink("github", o.github_url);
+    setLink("linkedin", o.linkedin_url);
+  }).catch(function () {
+    $("form-error").textContent = "Could not load the form options. Reload the page.";
+  });
+
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("name").value.trim();
+    var phone = normalizePhone($("phone").value);
+    var err = "";
+    if (!name) err = "Please enter your name.";
+    else if (!phone) err = "Enter the phone number in international format, e.g. +34600111222.";
+    $("form-error").textContent = err;
+    if (err) return;
+    payload = {
+      name: name, phone: phone, language: $("language").value, consent: true,
+      subjects: Array.prototype.map.call(
+        document.querySelectorAll("input[name=subject]:checked"), function (b) { return b.value; })
+    };
+    $("call-error").textContent = "";
+    show("step-ready");
+  });
+
+  $("back").addEventListener("click", function () { show("step-form"); });
+  $("again").addEventListener("click", function () {
+    runId++; clearTimeout(pollTimer); show("step-form");
+  });
+
+  $("call").addEventListener("click", function () {
+    var btn = $("call");
+    var code = $("code").value.trim();
+    var err = "";
+    if (!$("consent").checked) err = "Please tick the consent box to continue.";
+    else if (!code) err = "Enter the access code you received by email.";
+    $("call-error").textContent = err;
+    if (err) return;
+    btn.disabled = true;
+    postJson("/demo/call", Object.assign({ access_code: code }, payload)).then(function (data) {
+      accessCode = code;
+      $("result").classList.add("hidden");
+      $("summary").classList.add("hidden");
+      $("status-error").textContent = "";
+      setStatus("Calling you...", "Answer your phone. " + agent + " will speak first.", "");
+      show("step-status");
+      runId++;
+      poll(data.screening_id, runId, null, 0);
+    }).catch(function (e) {
+      $("call-error").textContent = e.message;
+    }).then(function () { btn.disabled = false; });
+  });
+
+  function setStatus(text, hint, dotClass) {
+    $("status-text").textContent = text;
+    $("status-hint").textContent = hint;
+    $("dot").className = "dot " + dotClass;
+  }
+
+  function poll(id, run, endedAt, failures) {
+    if (run !== runId) return;
+    postJson("/demo/screenings/" + encodeURIComponent(id), { access_code: accessCode }).then(function (data) {
+      if (run !== runId) return;
+      $("status-error").textContent = "";
+      var status = data.status;
+      if (status === "dialing" || status === "pending") {
+        setStatus("Calling you...", "Answer your phone. " + agent + " will speak first.", "");
+      } else if (status === "in_progress") {
+        setStatus("In call", agent + " is talking to you. This page updates when you hang up.", "live");
+      } else {
+        endedAt = endedAt || Date.now();
+        if (status === "failed" && !data.reached) {
+          setStatus("The call did not connect",
+            data.outcome === "no_answer" ? "Nobody picked up." : agent + " could not reach you.", "done");
+          renderResult(data, true);
+          return;
+        }
+        setStatus("Call ended", "", "done");
+        var waiting = !data.summary && Date.now() - endedAt < 90000;
+        renderResult(data, false, waiting);
+        if (!waiting) return;
+      }
+      pollTimer = setTimeout(function () { poll(id, run, endedAt, 0); }, 2000);
+    }).catch(function (e) {
+      if (run !== runId) return;
+      if (e.status === 403) {  // the code no longer works: retrying will not help
+        $("status-error").textContent = e.message;
+        return;
+      }
+      var delay = Math.min(4000 * Math.pow(2, failures), 30000);
+      pollTimer = setTimeout(function () { poll(id, run, endedAt, failures + 1); }, delay);
+    });
+  }
+
+  function addRow(list, term, value) {
+    if (value === null || value === undefined || value === "" ||
+        (Array.isArray(value) && !value.length)) return;
+    var dt = document.createElement("dt"), dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = Array.isArray(value) ? value.map(pretty).join(", ") : String(value);
+    list.append(dt, dd);
+  }
+
+  function renderResult(data, failed, waiting) {
+    var list = $("result-list");
+    list.textContent = "";
+    $("result").classList.remove("hidden");
+    $("summary-wait").textContent = waiting ? agent + " is writing the summary..." : "";
+    $("result-title").classList.toggle("hidden", failed);
+    if (failed) return;
+    var f = data.facts || {}, q = data.qualification || {}, sum = data.summary;
+    addRow(list, "Outcome", data.outcome ? pretty(data.outcome) : null);
+    if (q.qualified !== undefined) {
+      addRow(list, "Qualified", q.qualified ? "Yes" : "No");
+      addRow(list, "Reasons", q.reasons);
+    }
+    addRow(list, "Subjects", f.subjects);
+    addRow(list, "Levels", f.levels);
+    addRow(list, "Availability", f.availability);
+    addRow(list, "Teaching format", f.teaching_format && pretty(f.teaching_format));
+    addRow(list, "Work authorised", f.work_authorized === null || f.work_authorized === undefined ? null : (f.work_authorized ? "Yes" : "No"));
+    addRow(list, "Start date", f.start_date);
+    addRow(list, "Experience", f.experience);
+    if (data.slot) {
+      var when = new Date(data.slot.starts_at).toLocaleString([], { dateStyle: "full", timeStyle: "short" });
+      var where = data.slot.mode === "online" ? "online" : "in person" + (data.slot.address ? ", " + data.slot.address : "");
+      addRow(list, "Booking", when + " (" + where + ")");
+    } else {
+      addRow(list, "Booking", "None");
+    }
+    if (sum) {
+      $("summary").classList.remove("hidden");
+      var ul = $("points");
+      ul.textContent = "";
+      (sum.key_points || []).forEach(function (p) {
+        var li = document.createElement("li"); li.textContent = p; ul.appendChild(li);
+      });
+      $("next-step").textContent = sum.next_step ? "Next step: " + sum.next_step : "";
+    }
+  }
+})();
+</script>
+</body>
+</html>

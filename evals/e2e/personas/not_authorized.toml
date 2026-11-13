@@ -1,0 +1,13 @@
+# A candidate who cannot be hired: not authorized to work. Everything else is fine.
+name = "Daniel Ortega"
+style = "Polite and terse: the shortest answer that is true, no small talk."
+notes = "Fails the work-authorization rule only."
+
+[facts]
+start_date = "next_monday"
+subjects = ["physics"]
+levels = ["upper_secondary"]
+availability = ["workdays_morning"]
+teaching_format = "online"
+work_authorized = false
+experience = "Two years tutoring physics online for Bachillerato students."

@@ -1,0 +1,49 @@
+# Fly.io config for the public demo. Deploy with `fly deploy --ha=false` (exactly one machine).
+# `app` must be globally unique on Fly; if this name is taken, change it here before `fly launch`.
+app = "cascade-voice-agent"
+primary_region = "mad"
+# Run exactly one machine (`fly deploy --ha=false`): SQLite lives on the volume and live calls
+# in process memory, so a second machine would reject Twilio streams for calls it did not place.
+# Seconds Fly waits after SIGINT before killing the machine (its maximum): lets a call in
+# progress finish saving. A call is capped by CALL_TIME_LIMIT_SECS (900) anyway.
+kill_timeout = 300
+
+[build]
+
+[env]
+  # Phone only: no browser UI, no WebRTC routes. / serves the demo page.
+  WEB_UI_ENABLED = "false"
+  DATABASE_URL = "sqlite+aiosqlite:////data/hr_screener.db"
+  QDRANT_PATH = "/data/qdrant"
+  FASTEMBED_CACHE_DIR = "/data/fastembed"  # only used with EMBEDDING_PROVIDER=local
+  # per-call logs survive restarts and redeploys (fly ssh console to read them)
+  CALL_LOG_DIR = "/data/logs/calls"
+  # OpenAI text-embedding-3-large (OPENAI_API_KEY secret): the model KB_MIN_SCORE was tuned on,
+  # and no ~220 MB local model to download and hold in memory. "local" works keyless, but
+  # then keep the 2 GB VM: the process idles near 1 GB with the local model loaded.
+  EMBEDDING_PROVIDER = "openai"
+
+[mounts]
+  source = "hr_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 7860
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "180s"  # first start indexes the knowledge base
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # ~300 MB RSS idle with OpenAI embeddings; 2 GB leaves room for live calls (and for
+  # EMBEDDING_PROVIDER=local, which idles near 1 GB).
+  memory = "2gb"

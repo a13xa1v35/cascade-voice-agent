@@ -1,0 +1,27 @@
+[project]
+name = "fdb-eval"
+version = "0.1.0"
+description = "Full-Duplex-Bench evaluation environment (separate from the agent env)"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "nemo_toolkit[asr]",
+    "torch>=2.5,<2.9",
+    "torchaudio>=2.5,<2.9",
+    "silero-vad",
+    "utmosv2 @ git+https://github.com/sarulab-speech/UTMOSv2.git",
+    "openai",
+    "anthropic",
+    "soundfile",
+    "scipy",
+    "numpy",
+    "pandas",
+    "statsmodels",
+    "tqdm",
+    "python-dotenv",
+    "praat-parselmouth",
+    "librosa",
+    "gdown",
+]
+
+[tool.uv]
+package = false

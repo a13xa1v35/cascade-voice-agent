@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+.pytest_cache/
+.ruff_cache/
+
+# Secrets and local state
+.env
+logs/
+var/
+
+# Eval run output
+evals/results/
+
+# Turn-taking eval: Full-Duplex-Bench data and the patched upstream clone (raw runs are under
+# evals/results/ above)
+evals/turn_taking/data/
+evals/turn_taking/scoring/third_party/
+
+# macOS
+.DS_Store
+
+# Turn-taking eval: per-sample data stays with the raw run; reports/ keeps the markdown
+evals/turn_taking/reports/**/results.json
+evals/turn_taking/reports/**/manifest.json

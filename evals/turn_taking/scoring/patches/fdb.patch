@@ -1,0 +1,859 @@
+diff --git a/v1_v1.5/evaluation/eval_backchannel.py b/v1_v1.5/evaluation/eval_backchannel.py
+index 7398ba2..f332520 100644
+--- a/v1_v1.5/evaluation/eval_backchannel.py
++++ b/v1_v1.5/evaluation/eval_backchannel.py
+@@ -8,6 +8,8 @@ from silero_vad import load_silero_vad, get_speech_timestamps
+ import torchaudio
+ import argparse
+ 
++from fdb_common import dump_per_sample
++
+ # Define the hyperparameters
+ window_size = 0.2
+ epsilon = 1e-10
+@@ -16,7 +18,10 @@ time_threshold = 3
+ 
+ def eval_backchannel(data_dir):
+ 
+-    gt_distribution_path = "./icc_gt_distribution.json"
++    # [bench patch] resolve relative to this file, not the cwd
++    gt_distribution_path = os.path.join(
++        os.path.dirname(os.path.abspath(__file__)), "icc_gt_distribution.json"
++    )
+     with open(gt_distribution_path, "r") as f:
+         gt_distribution = json.load(f)
+ 
+@@ -24,13 +29,16 @@ def eval_backchannel(data_dir):
+     jsd_list = []
+     TOR_list = []
+     freq_list = []
+-    for spk in os.listdir(data_dir):
++    per_sample = []
++    for spk in sorted(os.listdir(data_dir), key=lambda x: (not x.isdigit(), x)):
+         if not spk.isdigit():
+             continue
+ 
+         out_wav_path = f"{data_dir}/{spk}/output.wav"
+         if not os.path.exists(out_wav_path):
+-            raise FileNotFoundError("Required file 'output.wav' not found.")
++            # [bench patch] skip (reported as missing by the caller) instead of aborting
++            print(f"WARNING: {out_wav_path} not found, skipping sample {spk}")
++            continue
+ 
+         wav, sr = torchaudio.load(out_wav_path)
+         if sr != 16000:
+@@ -45,6 +53,9 @@ def eval_backchannel(data_dir):
+         )
+ 
+         backchannel_prediction = []
++        # [bench patch] reset per sample (upstream leaked the previous sample's TOR
++        # when output.json was missing or VAD found no segments)
++        TOR = 0
+ 
+         json_file_name = f"{data_dir}/{spk}/output.json"
+ 
+@@ -53,7 +64,6 @@ def eval_backchannel(data_dir):
+             backchannel_prediction = []
+ 
+         else:
+-            TOR = 0
+             for segment in segments:
+                 start_time = segment["start"]
+                 end_time = segment["end"]
+@@ -158,7 +168,17 @@ def eval_backchannel(data_dir):
+ 
+         print(f"JSD: {js_divergence}")
+         jsd_list.append(js_divergence)
++        per_sample.append(
++            {
++                "id": spk,
++                "TOR": TOR,
++                "JSD": float(js_divergence),
++                "freq": freq_list[-1],
++                "n_backchannels": len(backchannel_prediction),
++            }
++        )
+ 
++    dump_per_sample("backchannel", data_dir, per_sample)
+     # Calculate statistics
+     jsd_mean, jsd_std = np.mean(jsd_list), np.std(jsd_list)
+     tor_mean, tor_std = np.mean(TOR_list), np.std(TOR_list)
+diff --git a/v1_v1.5/evaluation/eval_behavior.py b/v1_v1.5/evaluation/eval_behavior.py
+index f00ae67..05a1e87 100644
+--- a/v1_v1.5/evaluation/eval_behavior.py
++++ b/v1_v1.5/evaluation/eval_behavior.py
+@@ -2,6 +2,7 @@ import json
+ import os
+ 
+ from openai import OpenAI
++from fdb_common import MAX_JUDGE_ATTEMPTS, dump_per_sample, judge_chat
+ import json
+ import re
+ from typing import Dict, Any, Union, List
+@@ -47,36 +48,29 @@ def parse_eval(data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+ 
+ 
+ def eval_behavior(system_msg, user_msg, client, overlap=1):
+-    finished = False
+     seed = 1
+-    while not finished:
++    # [bench patch] at most MAX_JUDGE_ATTEMPTS tries (upstream retried forever);
++    # returns None when no attempt yields parseable output.
++    for attempt in range(MAX_JUDGE_ATTEMPTS):
+         try:
+-            MODEL_NAME = "gpt-4o-2024-08-06"
+-            messages = [
+-                {"role": "system", "content": system_msg},
+-                {"role": "user", "content": user_msg},
+-            ]
+-
+-            response = client.chat.completions.create(
+-                model=MODEL_NAME,
+-                messages=messages,
++            prediction = judge_chat(
++                system_msg,
++                user_msg,
++                default_model="gpt-4o-2024-08-06",
++                client=client,
+                 seed=seed,
+             )
+-
+-            prediction = response.choices[0].message.content
+             print("Prediction:", prediction)
+-            result = parse_eval(prediction)
+-            finished = True
+-            return result
++            return parse_eval(prediction)
+ 
+         except Exception as e:
+-            print(f"Error: {e}. Retrying...")
++            print(f"Error: {e}. Retrying ({attempt + 1}/{MAX_JUDGE_ATTEMPTS})...")
+             seed += 1
+             # wait for a while before retrying
+             import time
+ 
+             time.sleep(5)
+-            continue
++    return None
+ 
+ 
+ from collections import Counter
+@@ -99,7 +93,10 @@ def stats_by_axis(records):
+ 
+ 
+ def read_instruction(task):
+-    file_path = f"./instruction/{task}.txt"
++    # [bench patch] resolve relative to this file, not the cwd
++    file_path = os.path.join(
++        os.path.dirname(os.path.abspath(__file__)), "instruction", f"{task}.txt"
++    )
+     with open(file_path, "r", encoding="utf-8") as f:
+         instruction_text = f.read()
+     return instruction_text
+@@ -108,11 +105,12 @@ def read_instruction(task):
+ def eval_behavior_all(data_dir, client, task, aggregate=False):
+     folders = []
+     output_list = []
++    per_sample = {}
+ 
+     # read instruction
+     instruction = read_instruction(task)
+ 
+-    for folder in os.listdir(data_dir):
++    for folder in sorted(os.listdir(data_dir)):
+         folder_path = os.path.join(data_dir, folder)
+         if os.path.isdir(folder_path) and not folder.startswith("."):
+             folders.append(folder_path)
+@@ -175,11 +173,16 @@ def eval_behavior_all(data_dir, client, task, aggregate=False):
+         )
+ 
+         print(result)
++        per_sample[os.path.basename(dir_path)] = result
++        if result is None:
++            print(f"WARNING: no parseable judge output for {dir_path}; recording null")
++            continue
+         with open(os.path.join(dir_path, "content_tag.json"), "w") as f:
+             json.dump(result, f)
+ 
+         output_list.append(result)
+ 
++    dump_per_sample("behavior", data_dir, per_sample)
+     counts, totals, ratios = stats_by_axis(output_list)
+ 
+     fmt_ratios = {
+diff --git a/v1_v1.5/evaluation/eval_general_before_after.py b/v1_v1.5/evaluation/eval_general_before_after.py
+index f6178dc..95fc78a 100644
+--- a/v1_v1.5/evaluation/eval_general_before_after.py
++++ b/v1_v1.5/evaluation/eval_general_before_after.py
+@@ -55,17 +55,17 @@ _silero_model = None
+ _silero_utils = None  # tuple of silero functions
+ 
+ 
+-def _load_models():
++def _load_models(squim=True):
+     global _subjective_model, _objective_model, _utmosv2_model
+-    if _subjective_model is None:
++    # [bench patch] squim=False: don't download/load SQUIM when only UTMOSv2 is used
++    if squim and _subjective_model is None:
+         _subjective_model = SQUIM_SUBJECTIVE.get_model()
+-    if _objective_model is None:
++    if squim and _objective_model is None:
+         _objective_model = SQUIM_OBJECTIVE.get_model()
+     if _utmosv2_model is None:
+-        if torch.cuda.is_available():
+-            _utmosv2_model = utmosv2.create_model(pretrained=True, device="cuda")
+-        else:
+-            _utmosv2_model = utmosv2.create_model(pretrained=True)
++        # [bench patch] explicit cuda > cpu ("auto" may pick MPS)
++        _dev = "cuda" if torch.cuda.is_available() else "cpu"
++        _utmosv2_model = utmosv2.create_model(pretrained=True, device=_dev)
+ 
+ 
+ def _load_silero(force_reload: bool = False):
+@@ -73,11 +73,16 @@ def _load_silero(force_reload: bool = False):
+     global _silero_model, _silero_utils
+     if _silero_model is not None and _silero_utils is not None and not force_reload:
+         return _silero_model, _silero_utils
+-    _silero_model, _silero_utils = torch.hub.load(
+-        repo_or_dir="snakers4/silero-vad",
+-        model="silero_vad",
+-        force_reload=force_reload,
+-        onnx=False,
++    # [bench patch] use the silero-vad pip package instead of torch.hub (network, trust_repo)
++    import silero_vad as _sv
++
++    _silero_model = _sv.load_silero_vad()
++    _silero_utils = (
++        _sv.get_speech_timestamps,
++        _sv.save_audio,
++        _sv.read_audio,
++        _sv.VADIterator,
++        _sv.collect_chunks,
+     )
+     return _silero_model, _silero_utils
+ 
+@@ -304,10 +309,12 @@ def _run_squim_objective(wav: torch.Tensor) -> Dict[str, float]:
+ 
+ 
+ def _run_utmosv2(wav: torch.Tensor, sr: int) -> float:
+-    _load_models()
++    _load_models(squim=False)
+     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpf:
+         torchaudio.save(tmpf.name, wav, sr)
+-        mos = _utmosv2_model.predict(input_path=tmpf.name)
++        # [bench patch] predict() defaults to device="cuda:0"; pass cuda > cpu explicitly
++        _dev = "cuda:0" if torch.cuda.is_available() else "cpu"
++        mos = _utmosv2_model.predict(input_path=tmpf.name, device=_dev)
+     try:
+         os.unlink(tmpf.name)
+     except OSError:
+diff --git a/v1_v1.5/evaluation/eval_pause_handling.py b/v1_v1.5/evaluation/eval_pause_handling.py
+index 9438d23..5bd8a11 100644
+--- a/v1_v1.5/evaluation/eval_pause_handling.py
++++ b/v1_v1.5/evaluation/eval_pause_handling.py
+@@ -4,6 +4,8 @@ import re
+ import argparse
+ from tqdm import tqdm
+ 
++from fdb_common import dump_per_sample
++
+ turn_duration_threshold = 1
+ turn_num_words_threshold = 3
+ 
+@@ -15,17 +17,20 @@ def remove_punctuation(text: str) -> str:
+ def eval_pause_handling(data_dir):
+     audio_output_files = []
+ 
+-    for folder in os.listdir(data_dir):
++    for folder in sorted(os.listdir(data_dir)):
+         if folder.endswith(".DS_Store"):
+             continue
+         if folder.endswith(".md"):
+             continue
++        if not os.path.isdir(os.path.join(data_dir, folder)):
++            continue  # [bench patch] ignore stray files in root_dir
+ 
+         for file_o in os.listdir(os.path.join(data_dir, folder)):
+             if file_o.endswith("output.json"):
+                 audio_output_files.append(os.path.join(data_dir, folder, file_o))
+ 
+     take_turn_list = []
++    per_sample = []
+ 
+     for audio_output_file in tqdm(audio_output_files, desc="evaluate"):
+ 
+@@ -60,7 +65,15 @@ def eval_pause_handling(data_dir):
+                 TOR = 1
+ 
+         take_turn_list.append(TOR)
+-
++        per_sample.append(
++            {
++                "id": os.path.basename(os.path.dirname(audio_output_file)),
++                "TOR": TOR,
++                "n_words": len(segments_cw),
++            }
++        )
++
++    dump_per_sample("pause_handling", data_dir, per_sample)
+     average_take_turn = sum(take_turn_list) / len(take_turn_list)
+ 
+     print("---------------------------------------------------")
+diff --git a/v1_v1.5/evaluation/eval_smooth_turn_taking.py b/v1_v1.5/evaluation/eval_smooth_turn_taking.py
+index 743781e..8e5a0e1 100644
+--- a/v1_v1.5/evaluation/eval_smooth_turn_taking.py
++++ b/v1_v1.5/evaluation/eval_smooth_turn_taking.py
+@@ -4,6 +4,8 @@ import re
+ import argparse
+ from tqdm import tqdm
+ 
++from fdb_common import dump_per_sample
++
+ turn_duration_threshold = 1
+ turn_num_words_threshold = 3
+ 
+@@ -20,21 +22,27 @@ def eval_smooth_turn_taking(data_dir):
+     audio_input_files = []
+     audio_output_files = []
+ 
+-    for folder in os.listdir(data_dir):
++    for folder in sorted(os.listdir(data_dir)):
+         if folder.endswith(".DS_Store"):
+             continue
+         if folder.endswith(".md"):
+             continue
++        if not os.path.isdir(os.path.join(data_dir, folder)):
++            continue  # [bench patch] ignore stray files in root_dir
+ 
+         for file_o in os.listdir(os.path.join(data_dir, folder)):
+             if file_o.endswith("output.json"):
++                # [bench patch] append input+output together so the two lists
++                # cannot get misaligned when a turn_taking.json is missing.
++                tt = os.path.join(data_dir, folder, "turn_taking.json")
++                if not os.path.exists(tt):
++                    raise FileNotFoundError(f"Required file '{tt}' not found.")
+                 audio_output_files.append(os.path.join(data_dir, folder, file_o))
+-                for file_i in os.listdir(os.path.join(data_dir, folder)):
+-                    if file_i.endswith("turn_taking.json"):
+-                        audio_input_files.append(os.path.join(data_dir, folder, file_i))
++                audio_input_files.append(tt)
+ 
+     take_turn_list = []
+     latency_list = []
++    per_sample = []
+ 
+     for audio_input_file, audio_output_file in tqdm(
+         zip(audio_input_files, audio_output_files), desc="evaluate"
+@@ -73,11 +81,22 @@ def eval_smooth_turn_taking(data_dir):
+                 latency = output_start_time - input_end_time
+ 
+         take_turn_list.append(TOR)
++        latency_clamped = None
+         if TOR == 1:
+             if latency < 0:
+                 latency_list.append(0)
++                latency_clamped = 0
+             elif latency >= 0:
+                 latency_list.append(latency)
++                latency_clamped = latency
++        per_sample.append(
++            {
++                "id": os.path.basename(os.path.dirname(audio_output_file)),
++                "TOR": TOR,
++                "latency_raw": latency,
++                "latency": latency_clamped,
++            }
++        )
+ 
+         print(audio_output_file)
+         print(f"the TOR is {TOR}")
+@@ -88,8 +107,12 @@ def eval_smooth_turn_taking(data_dir):
+         if i < 0:
+             print(i)
+ 
++    dump_per_sample("smooth_turn_taking", data_dir, per_sample)
+     average_take_turn = sum(take_turn_list) / len(take_turn_list)
+-    average_latency = sum(latency_list) / len(latency_list)
++    # [bench patch] avoid ZeroDivisionError when no sample took the turn
++    average_latency = (
++        sum(latency_list) / len(latency_list) if latency_list else float("nan")
++    )
+ 
+     print("---------------------------------------------------")
+     print("[Result]")
+diff --git a/v1_v1.5/evaluation/eval_user_interruption.py b/v1_v1.5/evaluation/eval_user_interruption.py
+index 2a53bda..1394834 100644
+--- a/v1_v1.5/evaluation/eval_user_interruption.py
++++ b/v1_v1.5/evaluation/eval_user_interruption.py
+@@ -4,6 +4,13 @@ import os
+ import argparse
+ from tqdm import tqdm
+ 
++from fdb_common import (
++    MAX_JUDGE_ATTEMPTS,
++    dump_per_sample,
++    judge_chat,
++    judges_disabled,
++)
++
+ turn_duration_threshold = 1
+ turn_num_words_threshold = 3
+ 
+@@ -61,104 +68,124 @@ def eval_user_interruption(root_dir, client):
+     score_list = []
+     take_turn_list = []
+     latency_list = []
++    per_sample = []
++    skip_judge = judges_disabled()  # [bench patch] FDB_SKIP_JUDGE=1 -> TOR/latency only
+ 
+     for file_dir in tqdm(sorted(file_dirs)):
++        print(f"Processing {file_dir} ...")
++
++        out_after_interrupt_path = os.path.join(file_dir, "output.json")
++        if not os.path.exists(out_after_interrupt_path):
++            # [bench patch] skip (reported as missing by the caller) instead of aborting
++            print(f"WARNING: {out_after_interrupt_path} not found, skipping")
++            continue
++
++        with open(out_after_interrupt_path, "r") as f:
++            out_after_interrupt = json.load(f)
++
++        metadata_path = os.path.join(file_dir, "interrupt.json")
++        if not os.path.exists(metadata_path):
++            raise FileNotFoundError("Required file 'interrupt.json' not found.")
++
+         # read the json file
+-        while True:
+-            print(f"Processing {file_dir} ...")
+-
+-            out_after_interrupt_path = os.path.join(file_dir, "output.json")
+-            # check must have output.json, if not, raise error
+-            if not os.path.exists(out_after_interrupt_path):
+-                raise FileNotFoundError("Required file 'output.json' not found.")
+-
+-            with open(out_after_interrupt_path, "r") as f:
+-                out_after_interrupt = json.load(f)
+-
+-            metadata_path = os.path.join(file_dir, "interrupt.json")
+-            if not os.path.exists(metadata_path):
+-                raise FileNotFoundError("Required file 'interrupt.json' not found.")
+-
+-            # read the json file
+-            with open(metadata_path, "r") as f:
+-                metadata = json.load(f)
+-
+-            in_interrupt_text = metadata[0]["interrupt"]
+-            in_before_interrupt_text = metadata[0]["context"]
+-            input_end_time = metadata[0]["timestamp"][1]
+-            out_after_interrupt_text = out_after_interrupt["text"]
+-
+-            # TOR and latency
+-            TOR = None
+-            latency = None
+-            segments_cw = out_after_interrupt["chunks"]
+-
+-            # if no transcription from CrisperWhisper， means model does not take turn
+-            if len(segments_cw) == 0:
+-                TOR = 0
+-            else:
+-                output_start_time = segments_cw[0]["timestamp"][0]
+-                duration = (
+-                    segments_cw[-1]["timestamp"][-1] - segments_cw[0]["timestamp"][0]
+-                )
+-                if duration < turn_duration_threshold:
+-                    if len(segments_cw) <= turn_num_words_threshold:
+-                        TOR = 0
+-                    else:
+-                        TOR = 1
+-                        latency = output_start_time - input_end_time
++        with open(metadata_path, "r") as f:
++            metadata = json.load(f)
++
++        in_interrupt_text = metadata[0]["interrupt"]
++        in_before_interrupt_text = metadata[0]["context"]
++        input_end_time = metadata[0]["timestamp"][1]
++        out_after_interrupt_text = out_after_interrupt["text"]
++
++        # TOR and latency
++        TOR = None
++        latency = None
++        segments_cw = out_after_interrupt["chunks"]
++
++        # if no transcription from CrisperWhisper， means model does not take turn
++        if len(segments_cw) == 0:
++            TOR = 0
++        else:
++            output_start_time = segments_cw[0]["timestamp"][0]
++            duration = (
++                segments_cw[-1]["timestamp"][-1] - segments_cw[0]["timestamp"][0]
++            )
++            if duration < turn_duration_threshold:
++                if len(segments_cw) <= turn_num_words_threshold:
++                    TOR = 0
+                 else:
+                     TOR = 1
+                     latency = output_start_time - input_end_time
+-
+-            take_turn_list.append(TOR)
+-            if TOR == 1:
++            else:
++                TOR = 1
++                latency = output_start_time - input_end_time
++
++        take_turn_list.append(TOR)
++        score = None
++        latency_clamped = None
++        if TOR == 1:
++            # [bench patch] latency no longer depends on the judge succeeding
++            latency_clamped = max(latency, 0)
++            latency_list.append(latency_clamped)
++
++            if not skip_judge:
+                 user_msg = f"""
+                 - Contextual user turn: {in_before_interrupt_text}
+                 - User interrupting turn: {in_interrupt_text}
+                 - AI's response: {out_after_interrupt_text}
+                 """
+ 
+-                messages = [
+-                    {"role": "system", "content": system_msg},
+-                    {"role": "user", "content": user_msg},
+-                ]
+-
+-                response = client.chat.completions.create(
+-                    model=MODEL_NAME,
+-                    messages=messages,
+-                    seed=seed,
+-                )
+-
+-                prediction = response.choices[0].message.content
+-
+-                print(prediction)
+-                parsed_output = parse_output(prediction + "\n")
+-
+-                print(parsed_output)
+-                if "rating" not in parsed_output:
+-                    continue
+-                score = parsed_output["rating"]
+-                score_list.append(score)
+-
+-                # save the parsed_output to a json file
+-                with open(os.path.join(file_dir, "rating.json"), "w") as f:
+-                    json.dump(parsed_output, f)
+-
+-                score = parsed_output["rating"]
+-                score_list.append(score)
+-                if latency < 0:
+-                    latency_list.append(0)
+-                elif latency >= 0:
+-                    latency_list.append(latency)
+-
+-            break
+-
++                # [bench patch] bounded retries (upstream looped forever on
++                # unparseable judge output); judge call goes through judge_chat().
++                parsed_output = {}
++                for attempt in range(MAX_JUDGE_ATTEMPTS):
++                    try:
++                        prediction = judge_chat(
++                            system_msg,
++                            user_msg,
++                            default_model=MODEL_NAME,
++                            client=client,
++                            seed=seed,
++                        )
++                    except Exception as e:
++                        print(f"Judge call failed (attempt {attempt + 1}): {e!r}")
++                        continue
++                    print(prediction)
++                    parsed_output = parse_output(prediction + "\n")
++                    print(parsed_output)
++                    if "rating" in parsed_output:
++                        break
++                if "rating" in parsed_output:
++                    score = parsed_output["rating"]
++                    # [bench patch] append once (upstream appended twice per sample)
++                    score_list.append(score)
++                    # save the parsed_output to a json file
++                    with open(os.path.join(file_dir, "rating.json"), "w") as f:
++                        json.dump(parsed_output, f)
++                else:
++                    print(f"WARNING: no parseable rating for {file_dir}; recording null")
++
++        per_sample.append(
++            {
++                "id": os.path.relpath(file_dir, root_dir),
++                "TOR": TOR,
++                "latency_raw": latency,
++                "latency": latency_clamped,
++                "score": score,
++            }
++        )
++
++    dump_per_sample("user_interruption", root_dir, per_sample)
+     print("---------------------------------------------------")
+     print("[Result]")
+-    print("Average rating: ", sum(score_list) / len(score_list))
++    print(
++        "Average rating: ",
++        sum(score_list) / len(score_list) if score_list else "n/a (judge skipped/failed)",
++    )
+     print("Average take turn: ", sum(take_turn_list) / len(take_turn_list))
+-    print("Average latency: ", sum(latency_list) / len(latency_list))
++    print(
++        "Average latency: ",
++        sum(latency_list) / len(latency_list) if latency_list else "n/a",
++    )
+     print("---------------------------------------------------")
+ 
+ 
+diff --git a/v1_v1.5/evaluation/evaluate.py b/v1_v1.5/evaluation/evaluate.py
+index c3947fc..df7d7cf 100644
+--- a/v1_v1.5/evaluation/evaluate.py
++++ b/v1_v1.5/evaluation/evaluate.py
+@@ -3,6 +3,8 @@ import os
+ from dotenv import load_dotenv
+ from openai import OpenAI
+ 
++from fdb_common import judge_provider, judges_disabled
++
+ # Load environment variables from .env file
+ load_dotenv()
+ 
+@@ -52,11 +54,11 @@ def main():
+     elif args.task == "user_interruption":
+         from eval_user_interruption import eval_user_interruption
+ 
+-        client = OpenAI(
+-            # organization=organization,
+-            api_key=api_key,
+-        )
+-        client.models.list()
++        # [bench patch] OpenAI client only when it is actually the judge
++        client = None
++        if not judges_disabled() and judge_provider() == "openai":
++            client = OpenAI(api_key=api_key)
++            client.models.list()
+         eval_user_interruption(args.root_dir, client)
+ 
+     elif args.task == "general_before_after":
+@@ -92,10 +94,9 @@ def main():
+     elif args.task == "behavior":
+         from eval_behavior import eval_behavior_all
+ 
+-        client = OpenAI(
+-            # organization=organization,
+-            api_key=api_key,
+-        )
++        if judges_disabled():
++            raise SystemExit("behavior needs an LLM judge; FDB_SKIP_JUDGE is set")
++        client = OpenAI(api_key=api_key) if judge_provider() == "openai" else None
+         output = eval_behavior_all(
+             args.root_dir, client, task=args.task, aggregate=True
+         )
+diff --git a/v1_v1.5/evaluation/fdb_common.py b/v1_v1.5/evaluation/fdb_common.py
+new file mode 100644
+index 0000000..a474f55
+--- /dev/null
++++ b/v1_v1.5/evaluation/fdb_common.py
+@@ -0,0 +1,99 @@
++"""Helpers added by the turn-taking scoring patch (not part of upstream Full-Duplex-Bench).
++
++* judge_chat(): one entry point for every LLM-judge call (OpenAI or Anthropic).
++* judges_disabled(): FDB_SKIP_JUDGE=1 turns every judge off (no key needed).
++* dump_per_sample(): write per-sample results as JSON instead of scraping stdout.
++* FDB_JUDGE_USAGE_LOG=<file>: judge_chat() appends one JSON line of token usage per call.
++"""
++
++import json
++import os
++
++MAX_JUDGE_ATTEMPTS = 3
++
++
++def judges_disabled() -> bool:
++    return os.environ.get("FDB_SKIP_JUDGE", "") not in ("", "0", "false", "False")
++
++
++def judge_provider() -> str:
++    return os.environ.get("FDB_JUDGE_PROVIDER", "openai").strip().lower() or "openai"
++
++
++def judge_model(default_model: str) -> str:
++    return os.environ.get("FDB_JUDGE_MODEL", "").strip() or default_model
++
++
++def _log_usage(model, input_tokens, output_tokens) -> None:
++    path = os.environ.get("FDB_JUDGE_USAGE_LOG", "")
++    if not path:
++        return
++    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
++    with open(path, "a") as f:
++        f.write(
++            json.dumps(
++                {"model": model, "input_tokens": input_tokens or 0, "output_tokens": output_tokens or 0}
++            )
++            + "\n"
++        )
++
++
++def judge_chat(system_msg, user_msg, default_model, client=None, seed=0, max_tokens=2048):
++    """Return the judge's text reply.
++
++    FDB_JUDGE_PROVIDER=openai (default): upstream behaviour, chat.completions with
++    `seed`, model = FDB_JUDGE_MODEL or `default_model` (the upstream model).
++    FDB_JUDGE_PROVIDER=anthropic: messages API, model passed through unchanged,
++    no temperature override (same as upstream, which uses the API default).
++    """
++    provider = judge_provider()
++    model = judge_model(default_model)
++    if provider == "anthropic":
++        import anthropic
++
++        ac = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
++        resp = ac.messages.create(
++            model=model,
++            max_tokens=max_tokens,
++            system=system_msg,
++            messages=[{"role": "user", "content": user_msg}],
++        )
++        usage = getattr(resp, "usage", None)
++        _log_usage(
++            model, getattr(usage, "input_tokens", 0), getattr(usage, "output_tokens", 0)
++        )
++        return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
++    if provider != "openai":
++        raise ValueError(f"FDB_JUDGE_PROVIDER must be openai|anthropic, got {provider!r}")
++    if client is None:
++        from openai import OpenAI
++
++        client = OpenAI()
++    response = client.chat.completions.create(
++        model=model,
++        messages=[
++            {"role": "system", "content": system_msg},
++            {"role": "user", "content": user_msg},
++        ],
++        seed=seed,
++    )
++    usage = getattr(response, "usage", None)
++    _log_usage(
++        model, getattr(usage, "prompt_tokens", 0), getattr(usage, "completion_tokens", 0)
++    )
++    return response.choices[0].message.content
++
++
++def pick_device() -> str:
++    """cuda if available else cpu. MPS is deliberately never used."""
++    import torch
++
++    return "cuda" if torch.cuda.is_available() else "cpu"
++
++
++def dump_per_sample(task: str, root_dir: str, payload) -> None:
++    """Write per_sample_<task>.json into $FDB_PER_SAMPLE_DIR (default: root_dir)."""
++    out_dir = os.environ.get("FDB_PER_SAMPLE_DIR") or root_dir
++    os.makedirs(out_dir, exist_ok=True)
++    with open(os.path.join(out_dir, f"per_sample_{task}.json"), "w") as f:
++        json.dump(payload, f, indent=2)
+diff --git a/v1_v1.5/evaluation/get_timing.py b/v1_v1.5/evaluation/get_timing.py
+index 64b28da..a8c3e78 100644
+--- a/v1_v1.5/evaluation/get_timing.py
++++ b/v1_v1.5/evaluation/get_timing.py
+@@ -36,11 +36,11 @@ if hasattr(vad_module, "VoiceActivityDetector"):
+         return [(t["start"], t["end"]) for t in _VAD.get_speech_ts(wav)]
+ 
+ else:
+-    from silero_vad import get_speech_timestamps
++    from silero_vad import get_speech_timestamps, load_silero_vad
+ 
+-    _M, _ = torch.hub.load(
+-        "snakers4/silero-vad", model="silero_vad", trust_repo=True, onnx=False
+-    )
++    # [bench patch] use the model bundled in the pip package instead of
++    # torch.hub.load("snakers4/silero-vad") (network + trust_repo at runtime).
++    _M = load_silero_vad()
+ 
+     def _vad_ts(w):
+         return [
+diff --git a/v1_v1.5/get_transcript/asr.py b/v1_v1.5/get_transcript/asr.py
+index 822bc20..308a529 100644
+--- a/v1_v1.5/get_transcript/asr.py
++++ b/v1_v1.5/get_transcript/asr.py
+@@ -10,22 +10,46 @@ from tqdm import tqdm
+ MODEL_NAME = ""
+ 
+ 
+-def get_time_aligned_transcription(data_path, task, audio_name="output.wav"):
++def get_time_aligned_transcription(
++    data_path, task, audio_name="output.wav", skip_existing=False
++):
+     # Collect all matching audio files under the root directory
+     audio_paths = sorted(glob(f"{data_path}/*/{MODEL_NAME}{audio_name}"))
+ 
+     # JSON output filename mirrors the audio filename (e.g. clean_input.wav -> clean_input.json)
+     json_name = audio_name.rsplit(".", 1)[0] + ".json"
+ 
+-    # Load the pretrained NeMo ASR model and move to GPU
++    if skip_existing:
++        audio_paths = [
++            p
++            for p in audio_paths
++            if not os.path.exists(p.replace(f"{MODEL_NAME}{audio_name}", json_name))
++        ]
++    if not audio_paths:
++        print("[asr] nothing to transcribe")
++        return
++
++    # [bench patch] choose device (cuda > cpu) instead of unconditional .cuda()
++    import torch
++
++    device = "cuda" if torch.cuda.is_available() else "cpu"
++    import time
++
++    t_load = time.time()
++    # Load the pretrained NeMo ASR model and move to the chosen device
+     asr_model = nemo_asr.models.ASRModel.from_pretrained(
+         model_name="nvidia/parakeet-tdt-0.6b-v2"
+-    ).cuda()
++    ).to(device)
++    print(f"[asr] device={device} files={len(audio_paths)}")
++    print(f"[asr] model_load_s={time.time() - t_load:.2f}")
++    t_run = time.time()
++    audio_s_total = 0.0
+ 
+     for audio_path in tqdm(audio_paths):
+         print(audio_path)
+         # Read the audio file (waveform and sample rate)
+         waveform, sr = sf.read(audio_path)
++        audio_s_total += len(waveform) / sr
+         # If multichannel audio, convert to mono by averaging channels
+         if waveform.ndim > 1:
+             waveform = waveform.mean(axis=1)
+@@ -87,6 +111,11 @@ def get_time_aligned_transcription(data_path, task, audio_name="output.wav"):
+         with open(result_path, "w") as f:
+             json.dump(output_dict, f, indent=4)
+ 
++    print(
++        f"[asr] transcribe_s={time.time() - t_run:.2f} audio_s={audio_s_total:.2f} "
++        f"files={len(audio_paths)}"
++    )
++
+ 
+ if __name__ == "__main__":
+     parser = argparse.ArgumentParser(
+@@ -113,6 +142,13 @@ if __name__ == "__main__":
+              "Use 'clean_input.wav', 'clean_output.wav', or 'input.wav' for v1.5. "
+              "JSON output filename mirrors this (e.g. 'clean_output.wav' -> 'clean_output.json').",
+     )
++    parser.add_argument(
++        "--skip_existing",
++        action="store_true",
++        help="[bench patch] skip audio files whose output json already exists.",
++    )
+     args = parser.parse_args()
+ 
+-    get_time_aligned_transcription(args.root_dir, args.task, args.audio_name)
++    get_time_aligned_transcription(
++        args.root_dir, args.task, args.audio_name, args.skip_existing
++    )

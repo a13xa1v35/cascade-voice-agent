@@ -1,0 +1,82 @@
+[project]
+name = "hr-screener"
+version = "0.1.0"
+description = "Voice agent that screens tutor candidates by phone or browser (Pipecat + Claude)"
+readme = "README.md"
+authors = [
+    { name = "Alex Alves" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "alembic>=1.20.1",
+    "babel>=2.18.0",
+    "fastapi>=0.162.2",
+    "fastembed>=0.9.1",
+    "greenlet>=3.5.6",
+    "jinja2>=3.1.6",
+    "openai>=3.46.0",
+    "pipecat-ai[anthropic,assemblyai,cartesia,cloudflare,deepgram,elevenlabs,openai,runner,silero,webrtc,websocket]>=1.15.0",
+    "pydantic-settings>=2.16.2",
+    "pyyaml>=6.0.3",
+    "qdrant-client>=1.20.0",
+    "redis>=5",
+    "sqlalchemy>=2.1.8",
+    "twilio>=9.13.0",
+    "uvicorn[standard]>=0.54.0",
+    "voyageai>=0.6.0",
+]
+
+[project.scripts]
+hr-screener = "hr_screener.app.api:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "fakeredis[lua]>=2.40.0",
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "ruff>=0.17.4",
+    "ty>=0.0.99",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Upstream Full-Duplex-Bench clone (CC BY-NC, not ours) and the eval env.
+extend-exclude = ["evals/turn_taking/scoring/third_party", "evals/turn_taking/scoring/.venv"]
+
+[tool.ruff.lint]
+# E/F pycodestyle+pyflakes, I isort, UP pyupgrade, B bugbear, SIM simplify, ASYNC asyncio
+# pitfalls, RUF ruff-specific, PTH pathlib, PIE misc, RET returns, PERF perf, C4 comprehensions
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF", "PTH", "PIE", "RET", "PERF", "C4"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ty.environment]
+python-version = "3.12"  # ty finds the uv-managed .venv on its own
+
+[tool.ty.src]
+include = ["src", "tests", "evals"]
+# The scoring scripts run in their own env (torch, NeMo, scipy), which ty cannot see.
+exclude = ["evals/turn_taking/scoring"]
+
+[tool.ty.rules]
+# Flag `# ty: ignore` / `# type: ignore` comments that no longer suppress anything.
+unused-ignore-comment = "error"       # `# ty: ignore`
+unused-type-ignore-comment = "error"  # `# type: ignore`
+
+[tool.ty.terminal]
+error-on-warning = true  # deprecations and other warnings fail `make typecheck` too
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hr_screener"]
+# gettext catalogs: the compiled .mo files are read at runtime
+artifacts = ["src/hr_screener/i18n/locale/**/*.mo"]

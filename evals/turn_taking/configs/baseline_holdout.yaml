@@ -1,0 +1,38 @@
+# Full-Duplex-Bench inference config. Agent settings come from env_file as-is
+# (language is always forced to en: FDB inputs are English).
+run_name: baseline-holdout-telephony
+data_root: evals/turn_taking/data/fdb
+env_file: .env
+selection:
+  # HELD-OUT set: 10 fresh samples per task, disjoint from the 60 that system_one v2 was tuned
+  # on (all earlier runs used exactly the baseline's samples). New seed for a fresh draw.
+  seed: 1
+  from_manifest: null
+  exclude_manifests:
+    - evals/results/turn_taking/baseline-env-telephony/manifest.json  # written by the baseline run
+  tasks:                       # "<version>/<task>": {n: int} | {ids: [..]} | {all: true}
+    # Tier 1: end-of-turn vs. pause, and real vs. non-interrupting overlap
+    v1/candor_pause_handling: {n: 10}     # pause mid-thought: don't take over (TOR lower is better)
+    v1/candor_turn_taking: {n: 10}        # user finished: respond, fast (TOR higher, latency lower)
+    v1.5/user_backchannel: {n: 10}        # "yeah/ok" while the bot talks: keep talking
+    v1.5/user_interruption: {n: 10}       # real barge-in: stop fast, then respond
+    # Tier 2: overlap that isn't addressed to the bot
+    v1.5/background_speech: {n: 10}       # TV / other people: ignore
+    v1.5/talking_to_other: {n: 10}        # user speaks to someone else: ignore
+agent:
+  variant: baseline            # key into the variant registry (evals.turn_taking.variants)
+  audio_profile: telephony     # telephony (8k + mu-law round-trip on input) | web (16k in / 24k out)
+  settings_overrides: {}       # on top of the env_file Settings (language is not overridable)
+run:
+  concurrency: 2
+  trailing_silence_secs: 2.0   # appended so Smart Turn can close the last user turn; output truncated
+  clean_inputs: true           # v1.5: also run clean_input.wav -> clean_output.wav
+  skip_existing: true
+  max_session_starts_per_minute: 4   # AssemblyAI allows 5 new sessions/min; keep headroom for reconnects
+  max_retries: 2                     # rate-limited sessions only
+  retry_wait_secs: 60
+  tool_latency_secs: 0.3       # simulated latency of each mock tool (fixed bench agent)
+eval:                          # read by stage 2 only
+  device: auto
+  metrics: all                 # local | all (all = also run the LLM judge where a task has one)
+  judge: {provider: anthropic, model: claude-sonnet-5-5}

@@ -1,0 +1,460 @@
+# Golden set for the knowledge-base retrieval eval (make eval-kb).
+#
+# Format: top-level key `items`, a list of:
+#   id            unique string
+#   lang          en | es    language the candidate spoke
+#   question      the candidate's words (paraphrased, casual, some with speech-recognition
+#                 noise or mixed English/Spanish)
+#   query_es      the short Spanish search query the model should write for search_knowledge
+#   expected      list of chunk ids that answer the question (any of them counts as a hit);
+#                 [] for out-of-scope items
+#   out_of_scope  true when the knowledge base does not cover the question (must return no_match)
+#   tags          optional: asr (speech-recognition noise), mixed (code-switching)
+#
+# Chunk ids are `{doc_id}#{section-slug}`: the slug of the `###` heading if present, else the
+# `##` heading (lowercase, accents stripped, non-alphanumerics -> single '-', trimmed).
+# Short `###` subsections are folded into their parent chunk, so every id below is the slug of a
+# `##` parent heading.
+# Validated on 2026-11-11 against hr_screener.knowledge.chunking.load_chunks(knowledge/): every
+# expected id exists. Re-run that check whenever headings change or MIN_WORDS / MAX_WORDS change.
+# Items tagged `near` are out of scope but close to the topics the KB covers (use them to tune
+# KB_MIN_SCORE separately from far-topic no-match items).
+items:
+  # ---------------------------------------------------------------- English, in scope
+  - id: en-pay-level
+    lang: en
+    question: "How much do you pay per hour for high school classes?"
+    query_es: "tarifa por hora según el nivel bachillerato"
+    expected: ["pagos-y-tarifas#tarifa-por-hora-segun-el-nivel"]
+  - id: en-pay-asr
+    lang: en
+    question: "how much do you guys pay per our"
+    query_es: "tarifa por hora de clase"
+    expected: ["pagos-y-tarifas#tarifa-por-hora-segun-el-nivel"]
+    tags: [asr]
+  - id: en-pay-cs
+    lang: en
+    question: "Is there extra money if I teach computer science?"
+    query_es: "suplemento por asignatura informática programación"
+    expected: ["pagos-y-tarifas#tarifa-por-hora-segun-el-nivel"]
+  - id: en-hours-report
+    lang: en
+    question: "How do I report the hours I taught?"
+    query_es: "cómo se registran las horas de clase en la aplicación"
+    expected: ["pagos-y-tarifas#como-se-registran-las-horas"]
+  - id: en-payday
+    lang: en
+    question: "When do I actually get paid?"
+    query_es: "cuándo se cobra pago mensual transferencia"
+    expected: ["pagos-y-tarifas#como-se-registran-las-horas"]
+  - id: en-payday-asr
+    lang: en
+    question: "when do i get pay ed is it a bank trans fur"
+    query_es: "cuándo y cómo se cobra transferencia bancaria"
+    expected: ["pagos-y-tarifas#como-se-registran-las-horas"]
+    tags: [asr]
+  - id: en-contract-types
+    lang: en
+    question: "What kind of contract would I get with you?"
+    query_es: "modalidades de contrato tiempo parcial o autónomo"
+    expected: ["modalidades-de-contrato#dos-formas-de-trabajar-con-nosotros"]
+  - id: en-parttime-hours
+    lang: en
+    question: "How many hours a week do I need for the part-time contract?"
+    query_es: "horas mínimas a la semana contrato a tiempo parcial"
+    expected: ["modalidades-de-contrato#dos-formas-de-trabajar-con-nosotros", "disponibilidad-minima#horas-minimas-por-semana"]
+  - id: en-mixed-autonomo
+    lang: en
+    question: "do I need to be autónomo to work with you?"
+    query_es: "colaboración como autónomo alta de autónomo"
+    expected: ["modalidades-de-contrato#colaboracion-como-autonomo", "alta-autonomo-reta#cuando-hay-que-darse-de-alta"]
+    tags: [mixed]
+  - id: en-mixed-tarifa-plana
+    lang: en
+    question: "what's the tarifa plana for new autónomos these days?"
+    query_es: "tarifa plana nuevos autónomos cuota reducida"
+    expected: ["alta-autonomo-reta#tarifa-plana-para-nuevos-autonomos"]
+    tags: [mixed]
+  - id: en-family-cancel
+    lang: en
+    question: "What happens if a family cancels at the last minute?"
+    query_es: "cancelación de la familia con menos de 24 horas"
+    expected: ["cancelaciones-y-ausencias#cancelacion-por-parte-de-la-familia"]
+  - id: en-noshow-asr
+    lang: en
+    question: "what if the student dont show up at the door"
+    query_es: "la familia no se presenta a la clase presencial"
+    expected: ["cancelaciones-y-ausencias#cancelacion-por-parte-de-la-familia"]
+    tags: [asr]
+  - id: en-sick
+    lang: en
+    question: "Can I cancel a class if I'm sick?"
+    query_es: "profesor enfermo cancelar clase aviso"
+    expected: ["cancelaciones-y-ausencias#cancelacion-por-parte-del-profesor"]
+  - id: en-zones
+    lang: en
+    question: "Which areas of Madrid do you cover?"
+    query_es: "zonas de Madrid que cubrimos distritos"
+    expected: ["zonas-y-desplazamientos#zonas-que-cubrimos"]
+  - id: en-online-only
+    lang: en
+    question: "Can I teach only online and never go to anyone's house?"
+    query_es: "solo clases en línea sin desplazamiento"
+    expected: ["zonas-y-desplazamientos#zonas-que-cubrimos"]
+  - id: en-travel-pay
+    lang: en
+    question: "Do you pay for the transport to the students' homes?"
+    query_es: "ayuda de desplazamiento por clase presencial"
+    expected: ["zonas-y-desplazamientos#tiempo-maximo-de-desplazamiento"]
+  - id: en-onboarding-what
+    lang: en
+    question: "What exactly is the onboarding session?"
+    query_es: "qué es la sesión de incorporación"
+    expected: ["onboarding-y-formacion#que-es-la-sesion-de-incorporacion"]
+  - id: en-onboarding-asr
+    lang: en
+    question: "is the on boarding thing at your office or can i do it on line"
+    query_es: "sesión de incorporación presencial en la oficina o en línea"
+    expected: ["onboarding-y-formacion#que-es-la-sesion-de-incorporacion"]
+    tags: [asr]
+  - id: en-min-hours
+    lang: en
+    question: "What's the minimum availability you need from me?"
+    query_es: "disponibilidad mínima horas por semana"
+    expected: ["disponibilidad-minima#horas-minimas-por-semana"]
+  - id: en-start-window
+    lang: en
+    question: "How soon do I have to be able to start?"
+    query_es: "cuándo se puede empezar plazo catorce días"
+    expected: ["disponibilidad-minima#cuando-se-puede-empezar"]
+  - id: en-docs
+    lang: en
+    question: "What documents do I need to send you after the session?"
+    query_es: "documentos que se piden tras la incorporación"
+    expected: ["documentacion-tras-onboarding#que-documentos-pedimos"]
+  - id: en-cert-why
+    lang: en
+    question: "Why do I need a certificate to work with kids?"
+    query_es: "certificado de delitos de naturaleza sexual por qué se exige menores"
+    expected: ["certificado-delitos-sexuales#por-que-se-exige", "documentacion-tras-onboarding#el-certificado-para-trabajar-con-menores"]
+  - id: en-cert-how
+    lang: en
+    question: "How do I get that criminal record certificate for working with children, and does it cost anything?"
+    query_es: "cómo pedir el certificado de delitos sexuales coste gratuito"
+    expected: ["certificado-delitos-sexuales#por-que-se-exige"]
+  - id: en-mixed-cert-valid
+    lang: en
+    question: "the certificado de delitos sexuales, how long is it valid for?"
+    query_es: "certificado de delitos sexuales cuánto tiempo vale validez"
+    expected: ["certificado-delitos-sexuales#por-que-se-exige", "documentacion-tras-onboarding#el-certificado-para-trabajar-con-menores"]
+    tags: [mixed]
+  - id: en-irpf-rate
+    lang: en
+    question: "How much tax gets withheld from my invoices?"
+    query_es: "retención de IRPF en las facturas tipo general"
+    expected: ["retenciones-irpf#el-tipo-general-del-quince-por-ciento"]
+  - id: en-mixed-seven
+    lang: en
+    question: "is it true new autónomos only get 7% retención at the start?"
+    query_es: "retención reducida del siete por ciento nuevos profesionales"
+    expected: ["retenciones-irpf#el-tipo-general-del-quince-por-ciento"]
+    tags: [mixed]
+  - id: en-vat
+    lang: en
+    question: "Do I have to charge VAT on private lessons?"
+    query_es: "IVA clases particulares exención"
+    expected: ["iva-clases-particulares#la-exencion-de-las-clases-particulares"]
+  - id: en-vat-agency
+    lang: en
+    question: "If I invoice an agency like yours instead of the family, is it still VAT exempt?"
+    query_es: "IVA factura a una agencia exención clases particulares"
+    expected: ["iva-clases-particulares#la-exencion-de-las-clases-particulares"]
+  - id: en-verifactu
+    lang: en
+    question: "When does Verifactu become mandatory for freelancers?"
+    query_es: "Verifactu fechas obligatorio autónomos"
+    expected: ["facturacion-verifactu#que-es-verifactu"]
+  - id: en-modelo130
+    lang: en
+    question: "Do I have to file modelo 130 every quarter?"
+    query_es: "modelo 130 pago fraccionado trimestral plazos"
+    expected: ["obligaciones-trimestrales#modelo-130"]
+    tags: [mixed]
+  - id: en-non-eu
+    lang: en
+    question: "I'm from Argentina. Can I work in Spain as a tutor?"
+    query_es: "autorización de residencia y trabajo personas de fuera de la Unión Europea"
+    expected: ["nie-tie-extranjeros#personas-de-fuera-de-la-union-europea"]
+  - id: en-eu
+    lang: en
+    question: "I'm Italian. Do I need a work permit?"
+    query_es: "ciudadanos de la Unión Europea trabajar en España permiso NIE"
+    expected: ["nie-tie-extranjeros#que-son-el-nie-y-la-tie"]
+  # ---------------------------------------------------------------- Spanish, in scope
+  - id: es-pay-level
+    lang: es
+    question: "¿Cuánto pagáis la hora de clase de secundaria?"
+    query_es: "tarifa por hora secundaria"
+    expected: ["pagos-y-tarifas#tarifa-por-hora-segun-el-nivel"]
+  - id: es-pay-asr
+    lang: es
+    question: "cuanto pagais por ora si doy clase a universitarios"
+    query_es: "tarifa por hora universidad"
+    expected: ["pagos-y-tarifas#tarifa-por-hora-segun-el-nivel"]
+    tags: [asr]
+  - id: es-plus-prog
+    lang: es
+    question: "¿Hay algún plus por dar clases de programación?"
+    query_es: "suplemento informática programación por hora"
+    expected: ["pagos-y-tarifas#tarifa-por-hora-segun-el-nivel"]
+  - id: es-payday
+    lang: es
+    question: "¿Qué día del mes se cobra?"
+    query_es: "cuándo se cobra pago día diez transferencia"
+    expected: ["pagos-y-tarifas#como-se-registran-las-horas"]
+  - id: es-contract
+    lang: es
+    question: "¿Me hacéis contrato o tengo que facturar yo?"
+    query_es: "modalidades de contrato tiempo parcial o factura como autónomo"
+    expected: ["modalidades-de-contrato#dos-formas-de-trabajar-con-nosotros", "modalidades-de-contrato#colaboracion-como-autonomo"]
+  - id: es-other-job
+    lang: es
+    question: "Ya tengo otro trabajo por las mañanas, ¿puedo dar clases con vosotros por la tarde?"
+    query_es: "compatibilidad con otro empleo colaboración"
+    expected: ["modalidades-de-contrato#colaboracion-como-autonomo", "alta-autonomo-reta#que-cubre-la-cuota"]
+  - id: es-family-cancel
+    lang: es
+    question: "Si la familia cancela el mismo día, ¿yo cobro algo?"
+    query_es: "cancelación de la familia con menos de 24 horas se paga media clase"
+    expected: ["cancelaciones-y-ausencias#cancelacion-por-parte-de-la-familia"]
+  - id: es-noshow-asr
+    lang: es
+    question: "y si llego a la casa y no hay nadie que hago"
+    query_es: "la familia no está en la clase presencial espera quince minutos"
+    expected: ["cancelaciones-y-ausencias#cancelacion-por-parte-de-la-familia"]
+    tags: [asr]
+  - id: es-tutor-no-notice
+    lang: es
+    question: "¿Qué pasa si falto a una clase sin avisar?"
+    query_es: "falta sin aviso del profesor consecuencias"
+    expected: ["cancelaciones-y-ausencias#cancelacion-por-parte-del-profesor"]
+  - id: es-pozuelo
+    lang: es
+    question: "¿Dais clases por Pozuelo o solo en Madrid ciudad?"
+    query_es: "zonas cubiertas municipios cercanos Pozuelo"
+    expected: ["zonas-y-desplazamientos#zonas-que-cubrimos"]
+  - id: es-max-travel
+    lang: es
+    question: "¿Cuánto tiempo máximo tendría que viajar entre clase y clase?"
+    query_es: "tiempo máximo de desplazamiento puerta a puerta"
+    expected: ["zonas-y-desplazamientos#tiempo-maximo-de-desplazamiento"]
+  - id: es-onboarding-length
+    lang: es
+    question: "¿Cuánto dura el onboarding y qué hacemos en esa sesión?"
+    query_es: "sesión de incorporación duración contenido"
+    expected: ["onboarding-y-formacion#que-es-la-sesion-de-incorporacion"]
+    tags: [mixed]
+  - id: es-min-hours
+    lang: es
+    question: "¿Cuántas horas mínimo de availability necesitáis a la semana?"
+    query_es: "disponibilidad mínima horas por semana"
+    expected: ["disponibilidad-minima#horas-minimas-por-semana"]
+    tags: [mixed]
+  - id: es-papers
+    lang: es
+    question: "¿Qué documentos tengo que subir a la platform después del onboarding?"
+    query_es: "documentación que se pide tras la incorporación"
+    expected: ["documentacion-tras-onboarding#que-documentos-pedimos"]
+    tags: [mixed]
+  - id: es-alta-obligation
+    lang: es
+    question: "¿Tengo obligación de darme de alta de autónomo por dar cuatro clases a la semana?"
+    query_es: "cuándo hay que darse de alta como autónomo habitualidad"
+    expected: ["alta-autonomo-reta#cuando-hay-que-darse-de-alta"]
+  - id: es-cuota
+    lang: es
+    question: "¿Cuánto se paga de cuota de autónomos más o menos?"
+    query_es: "cuota de autónomos cotización según ingresos reales"
+    expected: ["alta-autonomo-reta#cotizacion-segun-ingresos-reales"]
+  - id: es-tarifa-plana
+    lang: es
+    question: "¿Qué es la tarifa plana de autónomos y cuánto dura?"
+    query_es: "tarifa plana nuevos autónomos duración"
+    expected: ["alta-autonomo-reta#tarifa-plana-para-nuevos-autonomos"]
+  - id: es-employee-vs-freelance
+    lang: es
+    question: "¿Qué me conviene más, contrato o autónomo?"
+    query_es: "empleado o autónomo cómo decidir diferencias"
+    expected: ["empleado-vs-autonomo#el-falso-autonomo", "empleado-vs-autonomo#que-diferencia-a-un-empleado-de-un-autonomo"]
+  - id: es-falso-autonomo
+    lang: es
+    question: "¿Qué es eso de un falso autónomo?"
+    query_es: "falso autónomo qué es"
+    expected: ["empleado-vs-autonomo#el-falso-autonomo"]
+  - id: es-invoice-content
+    lang: es
+    question: "¿Qué datos tiene que llevar una factura?"
+    query_es: "qué debe llevar una factura contenido obligatorio"
+    expected: ["facturacion-verifactu#que-debe-llevar-una-factura"]
+  - id: es-retencion-families
+    lang: es
+    question: "¿Una familia particular también tiene que retenerme el IRPF?"
+    query_es: "quién tiene que retener familias particulares empresas"
+    expected: ["retenciones-irpf#que-es-la-retencion"]
+  - id: es-alta-how
+    lang: es
+    question: "¿Cómo me doy de alta de autónomo, es complicado?"
+    query_es: "cómo se hace el alta de autónomo Seguridad Social y Hacienda"
+    expected: ["alta-autonomo-reta#cuando-hay-que-darse-de-alta"]
+  - id: es-invoice-families
+    lang: es
+    question: "¿Tengo que hacer factura a las familias?"
+    query_es: "obligación de factura a familias particulares y a empresas"
+    expected: ["iva-clases-particulares#factura-a-familias-y-factura-a-empresas"]
+  - id: es-verifactu-what
+    lang: es
+    question: "¿Qué es eso del Verifactu?"
+    query_es: "qué es Verifactu"
+    expected: ["facturacion-verifactu#que-es-verifactu"]
+  - id: es-numbering-asr
+    lang: es
+    question: "como se numeran las facturas hay que ir una detras de otra"
+    query_es: "numeración correlativa de facturas series"
+    expected: ["facturacion-verifactu#numeracion-correlativa"]
+    tags: [asr]
+  - id: es-modelo111
+    lang: es
+    question: "¿El modelo 111 lo presento yo o la empresa?"
+    query_es: "modelo 111 retenciones quién lo presenta"
+    expected: ["obligaciones-trimestrales#modelo-111-y-retenciones"]
+  - id: es-modelo303
+    lang: es
+    question: "¿Tengo que presentar el IVA cada trimestre si solo doy clases?"
+    query_es: "modelo 303 declaración trimestral de IVA operaciones exentas"
+    expected: ["obligaciones-trimestrales#modelo-130", "iva-clases-particulares#factura-a-familias-y-factura-a-empresas"]
+  - id: es-cert-where
+    lang: es
+    question: "¿Dónde pido el certificado de delitos sexuales?"
+    query_es: "cómo se pide el certificado de delitos de naturaleza sexual"
+    expected: ["certificado-delitos-sexuales#por-que-se-exige"]
+  - id: es-cert-foreign
+    lang: es
+    question: "Viví cinco años en Chile, ¿tengo que traer también el certificado de allí?"
+    query_es: "certificado de delitos sexuales personas extranjeras otro país"
+    expected: ["certificado-delitos-sexuales#personas-extranjeras"]
+  - id: es-permit
+    lang: es
+    question: "Soy colombiana, ¿necesito permiso de trabajo para dar clases?"
+    query_es: "autorización de residencia y trabajo fuera de la Unión Europea"
+    expected: ["nie-tie-extranjeros#personas-de-fuera-de-la-union-europea"]
+  - id: es-who
+    lang: es
+    question: "¿Quiénes sois exactamente? ¿Sois una academia?"
+    query_es: "quiénes somos TuTeacher agencia de clases particulares"
+    expected: ["sobre-tuteacher#quienes-somos"]
+  - id: es-agent-decide
+    lang: es
+    question: "¿Tú decides si me contratan o eso lo hace una persona?"
+    query_es: "qué puede hacer la asistente decisión de contratación"
+    expected: ["sobre-tuteacher#que-puede-y-que-no-puede-hacer-la-asistente"]
+  - id: es-next-steps
+    lang: es
+    question: "¿Qué pasos hay después de esta llamada?"
+    query_es: "cómo funciona el proceso pasos tras la selección"
+    expected: ["sobre-tuteacher#quienes-somos", "sobre-tuteacher#que-puede-y-que-no-puede-hacer-la-asistente"]
+  # ---------------------------------------------------------------- Out of scope (English)
+  - id: oos-en-weather
+    lang: en
+    question: "What's the weather going to be like in Madrid tomorrow?"
+    query_es: "tiempo en Madrid mañana"
+    expected: []
+    out_of_scope: true
+  - id: oos-en-football
+    lang: en
+    question: "Did Real Madrid win last night?"
+    query_es: "resultado del partido del Real Madrid"
+    expected: []
+    out_of_scope: true
+  - id: oos-en-mortgage
+    lang: en
+    question: "Should I take a fixed or variable rate mortgage?"
+    query_es: "hipoteca tipo fijo o variable"
+    expected: []
+    out_of_scope: true
+  - id: oos-en-competitor
+    lang: en
+    question: "How much does Superprof pay its tutors compared to you?"
+    query_es: "tarifas de Superprof para profesores"
+    expected: []
+    out_of_scope: true
+  - id: oos-en-us-visa
+    lang: en
+    question: "How do I apply for a US work visa?"
+    query_es: "visado de trabajo para Estados Unidos"
+    expected: []
+    out_of_scope: true
+  - id: oos-en-recipe
+    lang: en
+    question: "Can you give me a good recipe for paella?"
+    query_es: "receta de paella"
+    expected: []
+    out_of_scope: true
+  - id: oos-en-stock-options
+    lang: en
+    question: "Do employees at TuTeacher get stock options or a company car?"
+    query_es: "acciones opciones sobre acciones coche de empresa empleados"
+    expected: []
+    out_of_scope: true
+    tags: [near]
+  - id: oos-en-rent
+    lang: en
+    question: "How much is rent for a flat in Chamberí these days?"
+    query_es: "precio del alquiler de un piso en Chamberí"
+    expected: []
+    out_of_scope: true
+  # ---------------------------------------------------------------- Out of scope (Spanish)
+  - id: oos-es-weather
+    lang: es
+    question: "¿Va a llover este fin de semana?"
+    query_es: "previsión del tiempo fin de semana"
+    expected: []
+    out_of_scope: true
+  - id: oos-es-football
+    lang: es
+    question: "¿Quién ganó el clásico ayer?"
+    query_es: "resultado del clásico de fútbol"
+    expected: []
+    out_of_scope: true
+  - id: oos-es-mortgage
+    lang: es
+    question: "¿Me recomiendas pedir la hipoteca ahora o esperar a que bajen los tipos?"
+    query_es: "recomendación de hipoteca tipos de interés"
+    expected: []
+    out_of_scope: true
+  - id: oos-es-competitor
+    lang: es
+    question: "¿Cuánto paga la academia Cuadernos de Madrid a sus profesores?"
+    query_es: "tarifas de otra academia de Madrid"
+    expected: []
+    out_of_scope: true
+  - id: oos-es-ceo-phone
+    lang: es
+    question: "¿Me puedes dar el teléfono personal del director de la empresa?"
+    query_es: "teléfono personal del director"
+    expected: []
+    out_of_scope: true
+    tags: [near]
+  - id: oos-es-ceo-name
+    lang: es
+    question: "¿Cuántos empleados tiene TuTeacher y quién es el dueño?"
+    query_es: "número de empleados y propietario de la empresa"
+    expected: []
+    out_of_scope: true
+    tags: [near]
+  - id: oos-es-asr-flat
+    lang: es
+    question: "oye y sabes donde puedo comprar un portatil barato"
+    query_es: "dónde comprar un portátil barato"
+    expected: []
+    out_of_scope: true
+    tags: [asr]

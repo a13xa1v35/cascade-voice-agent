@@ -1,0 +1,14 @@
+# A candidate who qualifies and likes to ask questions: the knowledge scenarios (k1..k8).
+# Same facts as `qualifying`, so a call that books looks like the baseline ones.
+name = "Elena Vidal"
+style = "Friendly and brief: one or two short sentences, answers exactly what is asked. Asks a question only when the extra instruction says so."
+notes = "The knowledge-base persona. Facts equal to qualifying; the questions come from the scenario instruction."
+
+[facts]
+start_date = "next_monday"
+subjects = ["math", "physics"]
+levels = ["secondary", "upper_secondary"]
+availability = ["workdays_afternoon", "saturday_morning"]
+teaching_format = "both"
+work_authorized = true
+experience = "Three years of private maths and physics tutoring for secondary school students, and one year as a teaching assistant at a university."

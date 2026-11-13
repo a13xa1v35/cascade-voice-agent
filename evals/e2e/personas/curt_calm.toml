@@ -1,0 +1,14 @@
+# A candidate who qualifies, calm and cooperative but very brief, with the directness that is
+# normal in Spanish: the false-alarm control of the frustration-note scenario (m2).
+name = "Pablo Navarro"
+style = "Calm, cooperative and very brief: 'sí', 'vale', 'no', 'el lunes', 'por las tardes', a few words per answer, no small talk. Curt is not annoyed: he never complains, never sounds irritated, never says the call is long and never says he already told the agent anything. In an English call he is just as short ('yes', 'sure', 'no', 'Monday', 'afternoons')."
+notes = "The curt but calm persona. Facts equal to qualifying; only the brevity differs."
+
+[facts]
+start_date = "next_monday"
+subjects = ["math", "physics"]
+levels = ["secondary", "upper_secondary"]
+availability = ["workdays_afternoon", "saturday_morning"]
+teaching_format = "both"
+work_authorized = true
+experience = "Three years of private maths and physics tutoring for secondary school students, and one year as a teaching assistant at a university."
